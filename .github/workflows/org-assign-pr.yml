@@ -5,8 +5,13 @@ on:
     inputs:
       reviewers:
         description: '쉼표로 구분된 리뷰어 목록 (개인 ID 또는 팀)'
-        required: true
+        required: false
         type: string
+      onlyAssign:
+        description: 'true일 경우 담당자만 할당하고 리뷰어는 할당하지 않음'
+        required: false
+        type: boolean
+        default: false
     secrets:
       token:
         description: '팀 정보 조회를 위한 PAT'
@@ -26,10 +31,22 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
           REVIEWERS: ${{ inputs.reviewers }}
+          ONLY_ASSIGN: ${{ inputs.onlyAssign }}
         run: |
           echo "PR Number: $PR_NUMBER"
           echo "PR Author: $PR_AUTHOR"
-          echo "Assigning reviewers: $REVIEWERS"
+          echo "Only Assign Mode: $ONLY_ASSIGN"
+          echo "Reviewers: $REVIEWERS"
 
-          # 단일 명령어로 최적화
-          gh pr edit $PR_NUMBER --add-reviewer "$REVIEWERS" --add-assignee "$PR_AUTHOR"
+          # 담당자 할당은 항상 수행
+          gh pr edit $PR_NUMBER --add-assignee "$PR_AUTHOR"
+
+          # 리뷰어 할당 조건 확인
+          if [ "$ONLY_ASSIGN" = "true" ]; then
+            echo "onlyAssign이 true이므로 리뷰어 할당을 건너뜁니다."
+          elif [ -z "$REVIEWERS" ]; then
+            echo "리뷰어가 지정되지 않았으므로 리뷰어 할당을 건너뜁니다."
+          else
+            echo "리뷰어 할당 중: $REVIEWERS"
+            gh pr edit $PR_NUMBER --add-reviewer "$REVIEWERS"
+          fi
